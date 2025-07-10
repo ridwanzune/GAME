@@ -7,65 +7,58 @@ const GITHUB_REPO_NAME = process.env.GITHUB_REPO_NAME;
 const SCORES_FILE_PATH = 'data/highscores.json';
 const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/contents/${SCORES_FILE_PATH}`;
 
-const MAX_SCORES = 5;
+const MAX_SCORES_DISPLAY = 10;
 
 interface HighScore {
   name: string;
   score: number;
 }
 
-// Helper to make authenticated requests to the GitHub API
-async function githubRequest(method: string, body?: object) {
+/**
+ * Retrieves the raw score log and the file's SHA from GitHub.
+ * Gracefully handles a 404 (file not found) by returning an empty array.
+ * Throws a detailed error for other issues (e.g., bad credentials).
+ */
+async function getScoreLogAndSha(): Promise<{ scores: HighScore[]; sha: string | null }> {
+  if (!GITHUB_TOKEN || !GITHUB_REPO_OWNER || !GITHUB_REPO_NAME) {
+    throw new Error('Server configuration error: Missing GitHub environment variables in Vercel.');
+  }
+    
   const headers = {
     'Authorization': `Bearer ${GITHUB_TOKEN}`,
     'Accept': 'application/vnd.github.v3+json',
-    'Content-Type': 'application/json',
     'X-GitHub-Api-Version': '2022-11-28',
   };
 
-  const options: RequestInit = { method, headers };
-  if (body) {
-    options.body = JSON.stringify(body);
+  const response = await fetch(GITHUB_API_URL, { method: 'GET', headers, cache: 'no-store' });
+
+  if (response.status === 404) {
+    // This is a normal condition if no scores have been submitted yet.
+    return { scores: [], sha: null };
   }
 
-  const response = await fetch(GITHUB_API_URL, options);
-  if (!response.ok && response.status !== 404) {
-    const errorText = await response.text();
-    console.error(`GitHub API Error (${response.status}):`, errorText);
-    throw new Error(`GitHub API request failed: ${response.statusText}`);
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error(`GitHub API GET Error: Status ${response.status}. Response: ${errorBody}`);
+    throw new Error(`Failed to fetch scores from GitHub. Status: ${response.status}. Please verify your GITHUB_TOKEN and repository configuration in Vercel.`);
   }
-  return response;
-}
 
-// Retrieves the scores and the file's SHA from GitHub
-async function getScoresFromGithub() {
-  try {
-    const response = await githubRequest('GET');
-    if (response.status === 404) {
-      return { scores: [], sha: null }; // File doesn't exist
-    }
-    const data = await response.json();
-    // Web-standard way to decode base64 to a UTF-8 string, replacing Buffer.
-    // atob decodes base64 to a "binary string".
-    const binaryString = atob(data.content);
-    // We convert the binary string to a Uint8Array.
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    // TextDecoder then decodes the UTF-8 bytes into a string.
-    const content = new TextDecoder().decode(bytes);
-    const scores = JSON.parse(content);
-    return { scores, sha: data.sha };
-  } catch (error) {
-    console.error("Error getting scores from GitHub:", error);
-    return { scores: [], sha: null }; // Return a safe default on error
+  const data = await response.json();
+  if (!data.content) {
+    return { scores: [], sha: data.sha };
   }
+
+  // Replace Node.js Buffer with web-standard APIs for base64 decoding.
+  const binaryString = atob(data.content);
+  const bytes = Uint8Array.from(binaryString, c => c.charCodeAt(0));
+  const content = new TextDecoder().decode(bytes);
+  const scores = JSON.parse(content);
+  return { scores, sha: data.sha };
 }
 
 // Main handler for Vercel Serverless Function
 export default async function handler(req: Request) {
-  // Handle CORS preflight requests
+  // Handle CORS preflight requests for local development
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,
@@ -76,20 +69,32 @@ export default async function handler(req: Request) {
       },
     });
   }
-
+  
   const responseHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Content-Type': 'application/json',
+    'Cache-Control': 'no-store, max-age=0',
   };
-
-  if (!GITHUB_TOKEN || !GITHUB_REPO_OWNER || !GITHUB_REPO_NAME) {
-    return new Response(JSON.stringify({ error: 'Server is not configured with GitHub credentials.' }), { status: 500, headers: responseHeaders });
-  }
 
   try {
     if (req.method === 'GET') {
-      const { scores } = await getScoresFromGithub();
-      return new Response(JSON.stringify(scores), { status: 200, headers: responseHeaders });
+      const { scores: allScores } = await getScoreLogAndSha();
+
+      // Process the entire log to generate a leaderboard of personal bests
+      const playerHighScores = new Map<string, number>();
+      for (const score of allScores) {
+        const currentBest = playerHighScores.get(score.name) || 0;
+        if (score.score > currentBest) {
+          playerHighScores.set(score.name, score.score);
+        }
+      }
+
+      const leaderboard = Array.from(playerHighScores.entries())
+        .map(([name, score]) => ({ name, score }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, MAX_SCORES_DISPLAY);
+
+      return new Response(JSON.stringify(leaderboard), { status: 200, headers: responseHeaders });
     }
 
     if (req.method === 'POST') {
@@ -98,37 +103,52 @@ export default async function handler(req: Request) {
         return new Response(JSON.stringify({ error: 'Invalid score payload' }), { status: 400, headers: responseHeaders });
       }
 
-      const { scores: existingScores, sha } = await getScoresFromGithub();
+      const { scores: existingScores, sha } = await getScoreLogAndSha();
+      const updatedScores = [...existingScores, newScore];
       
-      const allScores = [...existingScores, newScore];
-      const sortedScores = allScores.sort((a, b) => b.score - a.score);
-      const topScores = sortedScores.slice(0, MAX_SCORES);
-
-      // Web-standard way to encode a UTF-8 string to base64, replacing Buffer.
-      const jsonString = JSON.stringify(topScores, null, 2);
-      // TextEncoder produces a Uint8Array of UTF-8 bytes.
+      // Replace Node.js Buffer with web-standard APIs for base64 encoding.
+      const jsonString = JSON.stringify(updatedScores, null, 2);
       const utf8Bytes = new TextEncoder().encode(jsonString);
-      // btoa expects a "binary string", so we convert byte values to characters.
-      let binaryString = '';
-      utf8Bytes.forEach((byte) => {
-        binaryString += String.fromCharCode(byte);
-      });
+      // btoa expects a binary string, so we convert each byte to a character.
+      // String.fromCharCode.apply is used to handle large arrays safely.
+      const binaryString = String.fromCharCode.apply(null, Array.from(utf8Bytes));
       const content = btoa(binaryString);
       
-      const body: { message: string, content: string, sha?: string | null } = {
-        message: `feat: Update high scores - ${newScore.name} reached level ${newScore.score}`,
+      const body: { message: string, content: string, sha?: string } = {
+        message: `log: ${newScore.name} reached level ${newScore.score}`,
         content,
-        sha,
       };
 
-      await githubRequest('PUT', body);
+      if (sha) {
+        body.sha = sha;
+      }
+
+      const putHeaders = {
+          'Authorization': `Bearer ${GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+      };
+
+      const putResponse = await fetch(GITHUB_API_URL, {
+        method: 'PUT',
+        headers: putHeaders,
+        body: JSON.stringify(body)
+      });
+
+      if (!putResponse.ok) {
+        const errorText = await putResponse.text();
+        console.error(`GitHub API PUT Error (${putResponse.status}):`, errorText);
+        throw new Error(`Failed to save score to GitHub. This can happen if the GITHUB_TOKEN lacks 'repo' scope or if the repository name is incorrect in Vercel.`);
+      }
+
       return new Response(JSON.stringify({ success: true }), { status: 200, headers: responseHeaders });
     }
 
     return new Response(JSON.stringify({ error: 'Method Not Allowed' }), { status: 405, headers: responseHeaders });
 
   } catch (error) {
-    console.error('API Handler Error:', error);
-    return new Response(JSON.stringify({ error: 'An internal server error occurred.' }), { status: 500, headers: responseHeaders });
+    console.error('[API HANDLER ERROR]', error);
+    const errorMessage = error instanceof Error ? error.message : 'An internal server error occurred.';
+    return new Response(JSON.stringify({ error: errorMessage }), { status: 500, headers: responseHeaders });
   }
 }

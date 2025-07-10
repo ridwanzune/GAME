@@ -1,3 +1,4 @@
+
 import React, { useEffect, useCallback, useState } from 'react';
 import { useGameLogic } from './hooks/useGameLogic';
 import { GameStatus, Direction, PowerUpType } from './types';
@@ -23,10 +24,16 @@ const PowerUpInventoryIcon: React.FC<{ type: PowerUpType; onClick: () => void }>
 export const App: React.FC = () => {
   const {
     gameStatus, level, maze, player, bots, powerUps, exit, inventory, traps, distraction,
-    setGameStatus, startGame, nextLevel, movePlayer, usePowerUp
+    setGameStatus, startGame, nextLevel, movePlayer, usePowerUp, enableTiltControls
   } = useGameLogic();
   
   const [playerNameInput, setPlayerNameInput] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+      const mobileCheck = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      setIsMobile(mobileCheck);
+  }, []);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (gameStatus !== GameStatus.Playing) return;
@@ -79,31 +86,52 @@ export const App: React.FC = () => {
       return <GameBoard maze={maze} player={player} bots={bots} powerUps={powerUps} exit={exit} traps={traps} distraction={distraction} />
   }
 
-  const handleStartGame = () => {
+  const handleStartGame = async () => {
     const trimmedName = playerNameInput.trim();
     if (trimmedName) {
+        if(isMobile) {
+            await enableTiltControls();
+        }
         startGame(trimmedName);
     }
   }
 
   const handleBackToMenu = () => setGameStatus(GameStatus.Menu);
   
+  const handleFullScreen = () => {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+            console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+        });
+    } else {
+        document.exitFullscreen();
+    }
+  };
+  
   const commonButtonClass = "w-full text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none";
 
   return (
-    <div className="w-screen h-screen flex flex-col items-center justify-center p-4 font-sans">
-      <h1 className="text-4xl font-bold text-cyan-300 mb-4 drop-shadow-[0_3px_3px_rgba(0,0,0,0.7)] tracking-wider">
+    <div className="w-screen min-h-screen flex flex-col items-center justify-center p-4 font-sans">
+      {isMobile && (
+        <button onClick={handleFullScreen} className="fixed top-2 right-2 z-50 bg-pink-600 text-white p-2 rounded-full shadow-lg">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
+          </svg>
+        </button>
+      )}
+
+      <h1 className="text-4xl font-bold text-cyan-300 my-4 drop-shadow-[0_3px_3px_rgba(0,0,0,0.7)] tracking-wider">
         Poho's Great Escape
       </h1>
       
-      <div className="w-full flex justify-center items-start gap-8">
+      <div className="w-full flex flex-col md:flex-row justify-center items-start gap-8">
         {/* Game Board Container */}
-        <div className="flex-shrink-0" style={{height: 500}}>
+        <div className="flex-shrink-0 mx-auto">
           {renderGameContent()}
         </div>
 
         {/* UI Panel */}
-        <div className="w-64 flex-shrink-0 space-y-6">
+        <div className="w-full md:w-64 flex-shrink-0 space-y-6">
             <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
                 <h2 className="text-2xl font-bold text-pink-400">Level: {level}</h2>
             </div>
@@ -120,8 +148,14 @@ export const App: React.FC = () => {
             </div>
              <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 text-slate-300">
                 <h3 className="text-xl font-bold text-pink-400 mb-2">Controls</h3>
-                <p><span className="font-mono bg-slate-700 px-2 py-1 rounded">WASD</span> or <span className="font-mono bg-slate-700 px-2 py-1 rounded">Arrow Keys</span> to move.</p>
-                <p><span className="font-mono bg-slate-700 px-2 py-1 rounded">1, 2, 3</span> to use power-ups.</p>
+                 {isMobile ? (
+                    <p>Tilt your phone to move Poho!</p>
+                ) : (
+                    <>
+                        <p><span className="font-mono bg-slate-700 px-2 py-1 rounded">WASD</span> or <span className="font-mono bg-slate-700 px-2 py-1 rounded">Arrow Keys</span> to move.</p>
+                        <p><span className="font-mono bg-slate-700 px-2 py-1 rounded">1, 2, 3</span> to use power-ups.</p>
+                    </>
+                )}
             </div>
             <Leaderboard gameStatus={gameStatus} />
         </div>
@@ -144,6 +178,7 @@ export const App: React.FC = () => {
       <Modal title="Enter Your Name" isOpen={gameStatus === GameStatus.NameInput}>
         <p>Help Poho escape the yarn labyrinth! Reach the yarn basket 🧺 to win.</p>
         <p>Avoid the menacing Thread-Bots 🤖.</p>
+        {isMobile && <p className="mt-2 text-cyan-300 font-bold">You'll use TILT controls on mobile!</p>}
         <div className="mt-4 space-y-3">
              <input
                 type="text"
