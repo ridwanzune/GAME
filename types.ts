@@ -38,6 +38,7 @@ export enum PowerUpType {
   Distraction,
   Speed,
   Trap,
+  WallBreaker,
 }
 
 export interface PowerUp extends Position {

@@ -1,9 +1,8 @@
-
-
 import { useState, useEffect, useCallback } from 'react';
 import { GameStatus, Cell, PlayerState, BotState, PowerUp, PowerUpType, Trap, Position, Direction } from '../types';
 import { MAZE_WIDTH, MAZE_HEIGHT, BOT_INITIAL_SPEED, GAME_TICK_MS, POWERUP_COUNT, SPEED_BOOST_DURATION, SPEED_BOOST_MULTIPLIER, BOT_STUN_DURATION, TRAP_DURATION, DISTRACTION_DURATION, BOT_PATH_RECALCULATION_CHANCE } from '../constants';
 import { saveHighScore } from '../lib/api';
+import { playSound } from '../lib/sounds';
 
 // A robust way to get numeric enum values for power-up types.
 const POWERUP_TYPES = Object.values(PowerUpType).filter(v => typeof v === 'number') as PowerUpType[];
@@ -166,16 +165,45 @@ export const useGameLogic = () => {
 
     switch(type) {
       case PowerUpType.Speed:
+        playSound('use');
         setPlayer(p => ({ ...p, speedBoost: SPEED_BOOST_DURATION }));
         break;
       case PowerUpType.Trap:
+        playSound('use');
         setTraps(t => [...t, { id: Date.now(), x: player.x, y: player.y, ticksRemaining: TRAP_DURATION }]);
         break;
       case PowerUpType.Distraction:
+        playSound('use');
         setDistraction({ x: player.x, y: player.y, ticksRemaining: DISTRACTION_DURATION });
         break;
+      case PowerUpType.WallBreaker: {
+        const { x, y, direction } = player;
+        const currentCell = maze[y]?.[x];
+        if (!currentCell) break;
+
+        let wallToBreak: 'top' | 'bottom' | 'left' | 'right' | null = null;
+        let neighborPos: Position | null = null;
+
+        if (direction === Direction.Up && y > 0) { wallToBreak = 'top'; neighborPos = { x, y: y - 1 }; }
+        else if (direction === Direction.Down && y < MAZE_HEIGHT - 1) { wallToBreak = 'bottom'; neighborPos = { x, y: y + 1 }; }
+        else if (direction === Direction.Left && x > 0) { wallToBreak = 'left'; neighborPos = { x: x - 1, y }; }
+        else if (direction === Direction.Right && x < MAZE_WIDTH - 1) { wallToBreak = 'right'; neighborPos = { x: x + 1, y }; }
+        
+        if (wallToBreak && currentCell.walls[wallToBreak] && neighborPos) {
+            playSound('break');
+            const newMaze = JSON.parse(JSON.stringify(maze)); // Deep copy
+            newMaze[y][x].walls[wallToBreak] = false;
+            
+            const oppositeWall = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' }[wallToBreak];
+            if (newMaze[neighborPos.y]?.[neighborPos.x]) {
+                newMaze[neighborPos.y][neighborPos.x].walls[oppositeWall] = false;
+            }
+            setMaze(newMaze);
+        }
+        break;
+      }
     }
-  }, [inventory, player, gameStatus]);
+  }, [inventory, player, gameStatus, maze]);
   
   const bfs = useCallback((start: Position, end: Position): Position[] => {
     if (!maze.length) return [];
@@ -212,6 +240,7 @@ export const useGameLogic = () => {
   const movePlayer = useCallback((direction: Direction) => {
       if (gameStatus !== GameStatus.Playing || direction === Direction.None) return;
       
+      let moved = false;
       setPlayer(p => {
           let { x, y } = p;
           const currentCell = maze[y]?.[x];
@@ -219,11 +248,12 @@ export const useGameLogic = () => {
 
           let newDirection = p.direction;
 
-          if (direction === Direction.Up && !currentCell.walls.top) { y -= 1; newDirection = Direction.Up; }
-          else if (direction === Direction.Down && !currentCell.walls.bottom) { y += 1; newDirection = Direction.Down; }
-          else if (direction === Direction.Left && !currentCell.walls.left) { x -= 1; newDirection = Direction.Left; }
-          else if (direction === Direction.Right && !currentCell.walls.right) { x += 1; newDirection = Direction.Right; }
+          if (direction === Direction.Up && !currentCell.walls.top) { y -= 1; newDirection = Direction.Up; moved = true;}
+          else if (direction === Direction.Down && !currentCell.walls.bottom) { y += 1; newDirection = Direction.Down; moved = true;}
+          else if (direction === Direction.Left && !currentCell.walls.left) { x -= 1; newDirection = Direction.Left; moved = true;}
+          else if (direction === Direction.Right && !currentCell.walls.right) { x += 1; newDirection = Direction.Right; moved = true;}
           
+          if(moved) playSound('move');
           return { ...p, x, y, direction: newDirection };
       });
   }, [maze, gameStatus]);
@@ -275,6 +305,7 @@ export const useGameLogic = () => {
       setPowerUps(currentPowerUps => {
         const collected = currentPowerUps.find(p => p.x === player.x && p.y === player.y);
         if (collected) {
+          playSound('collect');
           if (inventory.length < 3) {
             setInventory(inv => [...inv, collected.type]);
           }
@@ -286,6 +317,7 @@ export const useGameLogic = () => {
       setBots(currentBots => currentBots.map(b => {
           const trap = traps.find(t => t.x === b.x && t.y === b.y);
           if(trap && b.stunned === 0){
+             playSound('stun');
              b.stunned = BOT_STUN_DURATION;
              setTraps(ts => ts.filter(t => t.id !== trap.id));
           }
@@ -294,18 +326,20 @@ export const useGameLogic = () => {
       
       const caughtByBot = bots.some(b => b.x === player.x && b.y === player.y);
       if (caughtByBot) {
+        playSound('lose');
         setGameStatus(GameStatus.GameOver);
       }
       
       // Win condition
       if (player.x === exit.x && player.y === exit.y) {
+        playSound('win');
         setGameStatus(GameStatus.Victory);
       }
 
     }, GAME_TICK_MS / (player.speedBoost > 0 ? SPEED_BOOST_MULTIPLIER : 1));
 
     return () => clearInterval(gameInterval);
-  }, [gameStatus, player, bots, exit, inventory, traps, bfs, distraction, movePlayer]);
+  }, [gameStatus, player, bots, exit, inventory, traps, bfs, distraction]);
   
   // Save score on game over
   useEffect(() => {

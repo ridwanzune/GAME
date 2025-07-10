@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Cell, PlayerState, BotState, PowerUp, Trap, Position, PowerUpType } from '../types';
 import { MAZE_WIDTH, MAZE_HEIGHT } from '../constants';
@@ -21,6 +20,7 @@ const PowerUpIcon: React.FC<{ type: PowerUpType }> = ({ type }) => {
     [PowerUpType.Speed]: { icon: '⚡️', color: 'bg-cyan-500' },
     [PowerUpType.Trap]: { icon: '🕸️', color: 'bg-yellow-500' },
     [PowerUpType.Distraction]: { icon: '🧶', color: 'bg-pink-500' },
+    [PowerUpType.WallBreaker]: { icon: '🔨', color: 'bg-orange-500' },
   };
   return <div className={`w-full h-full rounded-full flex items-center justify-center text-xl ${styles[type].color}`}>{styles[type].icon}</div>;
 };

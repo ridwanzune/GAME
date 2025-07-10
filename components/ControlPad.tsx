@@ -1,56 +1,67 @@
-
-import React from 'react';
-import { Direction, PowerUpType } from '../types';
+import React, { useRef } from 'react';
+import { Direction } from '../types';
+import { GAME_TICK_MS } from '../constants';
 
 const DPadButton: React.FC<{
-  onPress: () => void;
+  onPress: (direction: Direction) => void;
+  direction: Direction;
   gridPlacement: string;
   children: React.ReactNode;
-}> = ({ onPress, gridPlacement, children }) => (
-  <button
-    onTouchStart={(e) => { e.preventDefault(); onPress(); }}
-    onClick={(e) => { e.preventDefault(); onPress(); }}
-    className={`w-12 h-12 md:w-14 md:h-14 bg-slate-600 active:bg-slate-500 rounded-lg flex items-center justify-center text-white text-2xl transition-colors ${gridPlacement}`}
-  >
-    {children}
-  </button>
-);
+}> = ({ onPress, direction, gridPlacement, children }) => {
+  const intervalRef = useRef<number | null>(null);
+  const timeoutRef = useRef<number | null>(null);
 
-const PowerUpButton: React.FC<{ type: PowerUpType; onClick: () => void }> = ({ type, onClick }) => {
-  const styles: { [key in PowerUpType]: { icon: string; color: string } } = {
-    [PowerUpType.Speed]: { icon: '⚡️', color: 'bg-cyan-500' },
-    [PowerUpType.Trap]: { icon: '🕸️', color: 'bg-yellow-500' },
-    [PowerUpType.Distraction]: { icon: '🧶', color: 'bg-pink-500' },
+  const handlePressStart = () => {
+    // Clear any existing timers to prevent conflicts
+    handlePressEnd();
+    // Move once immediately
+    onPress(direction);
+    // After a delay, start continuous movement
+    timeoutRef.current = window.setTimeout(() => {
+      intervalRef.current = window.setInterval(() => {
+        onPress(direction);
+      }, GAME_TICK_MS * 0.9); // Make continuous movement slightly faster than one-off moves
+    }, 200);
   };
-  const style = styles[type];
+
+  const handlePressEnd = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    timeoutRef.current = null;
+    intervalRef.current = null;
+  };
+
   return (
     <button
-      onClick={onClick}
-      className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl transition-all border-4 border-slate-900 active:scale-95 ${style.color}`}
+      onTouchStart={(e) => { e.preventDefault(); handlePressStart(); }}
+      onTouchEnd={(e) => { e.preventDefault(); handlePressEnd(); }}
+      onMouseDown={(e) => { e.preventDefault(); handlePressStart(); }}
+      onMouseUp={(e) => { e.preventDefault(); handlePressEnd(); }}
+      onMouseLeave={(e) => { if (e.buttons === 1) handlePressEnd(); }}
+      className={`w-16 h-16 bg-slate-600 active:bg-slate-500 flex items-center justify-center text-white text-3xl transition-colors shadow-inner ${gridPlacement}`}
     >
-      {style.icon}
+      {children}
     </button>
   );
 };
 
+
 interface ControlPadProps {
     level: number;
-    inventory: PowerUpType[];
     onDirectionPress: (direction: Direction) => void;
-    onPowerUpPress: (type: PowerUpType, index: number) => void;
 }
 
-const ControlPad: React.FC<ControlPadProps> = ({ level, inventory, onDirectionPress, onPowerUpPress }) => {
+const ControlPad: React.FC<ControlPadProps> = ({ level, onDirectionPress }) => {
     return (
         <div className="bg-slate-700/50 p-2 rounded-xl border border-slate-600 w-full h-full select-none">
             <div className="flex justify-between items-center">
-                {/* D-Pad */}
-                <div className="grid grid-cols-3 grid-rows-3 gap-1 w-[156px] h-[156px] md:w-[180px] md:h-[180px]">
-                    <DPadButton onPress={() => onDirectionPress(Direction.Up)} gridPlacement="col-start-2">▲</DPadButton>
-                    <DPadButton onPress={() => onDirectionPress(Direction.Left)} gridPlacement="row-start-2">◀</DPadButton>
-                    <div className="w-12 h-12 md:w-14 md:h-14 bg-slate-500 rounded-lg row-start-2 col-start-2"></div>
-                    <DPadButton onPress={() => onDirectionPress(Direction.Right)} gridPlacement="row-start-2 col-start-3">▶</DPadButton>
-                    <DPadButton onPress={() => onDirectionPress(Direction.Down)} gridPlacement="row-start-3 col-start-2">▼</DPadButton>
+                {/* Retro D-Pad */}
+                <div className="relative w-48 h-48">
+                    <DPadButton onPress={onDirectionPress} direction={Direction.Up} gridPlacement="absolute top-0 left-1/2 -translate-x-1/2 rounded-t-2xl">▲</DPadButton>
+                    <DPadButton onPress={onDirectionPress} direction={Direction.Left} gridPlacement="absolute left-0 top-1/2 -translate-y-1/2 rounded-l-2xl">◀</DPadButton>
+                    <DPadButton onPress={onDirectionPress} direction={Direction.Right} gridPlacement="absolute right-0 top-1/2 -translate-y-1/2 rounded-r-2xl">▶</DPadButton>
+                    <DPadButton onPress={onDirectionPress} direction={Direction.Down} gridPlacement="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-b-2xl">▼</DPadButton>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-slate-600"></div>
                 </div>
 
                 {/* Level Display */}
@@ -59,14 +70,8 @@ const ControlPad: React.FC<ControlPadProps> = ({ level, inventory, onDirectionPr
                     <p className="text-3xl font-mono text-white">{level}</p>
                 </div>
 
-                {/* Power-Up Buttons */}
-                <div className="flex flex-col space-y-2 items-center">
-                    {inventory.map((p, i) => (
-                        <PowerUpButton key={i} type={p} onClick={() => onPowerUpPress(p, i)} />
-                    ))}
-                    {Array(3 - inventory.length).fill(0).map((_, i) => (
-                        <div key={i} className="w-16 h-16 rounded-full bg-slate-600/50 border-4 border-slate-900/50"></div>
-                    ))}
+                 {/* Empty space for balance */}
+                <div className="w-48 h-48 flex justify-center items-center">
                 </div>
             </div>
         </div>

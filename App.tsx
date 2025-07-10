@@ -1,5 +1,4 @@
 
-
 import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { useGameLogic } from './hooks/useGameLogic';
 import { GameStatus, Direction, PowerUpType } from './types';
@@ -14,12 +13,18 @@ const PowerUpInventoryIcon: React.FC<{ type: PowerUpType; onClick: () => void }>
     [PowerUpType.Speed]: { icon: '⚡️', color: 'bg-cyan-500 hover:bg-cyan-400', key: '1' },
     [PowerUpType.Trap]: { icon: '🕸️', color: 'bg-yellow-500 hover:bg-yellow-400', key: '2' },
     [PowerUpType.Distraction]: { icon: '🧶', color: 'bg-pink-500 hover:bg-pink-400', key: '3' },
+    [PowerUpType.WallBreaker]: { icon: '🔨', color: 'bg-orange-500 hover:bg-orange-400', key: ' ' },
   };
   const style = styles[type];
+  
+  // Find which key (1,2,3) corresponds to this power-up instance in the inventory.
+  // We can't know the index here directly, so we show the icon only. 
+  // The key display is primarily a desktop hint.
+  
   return (
-    <button onClick={onClick} className={`relative w-16 h-16 rounded-full flex items-center justify-center text-3xl transition-all border-4 border-slate-600 ${style.color}`}>
+    <button onClick={onClick} className={`relative w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center text-2xl md:text-3xl transition-all border-4 border-slate-600 ${style.color}`}>
         {style.icon}
-        <span className="absolute -top-2 -right-2 bg-slate-900 text-white rounded-full w-7 h-7 flex items-center justify-center border-2 border-slate-500 font-mono">{style.key}</span>
+        <span className="absolute -top-2 -right-2 bg-slate-900 text-white rounded-full w-7 h-7 hidden items-center justify-center border-2 border-slate-500 font-mono md:flex">{style.key}</span>
     </button>
   );
 };
@@ -46,20 +51,12 @@ export const App: React.FC = () => {
         const { clientWidth, clientHeight } = gameAreaRef.current;
         const tileW = Math.floor(clientWidth / MAZE_WIDTH);
         const tileH = Math.floor(clientHeight / MAZE_HEIGHT);
-        
-        if (isMobile) {
-            // On mobile, prioritize fitting the maze in the available area.
-            setTileSize(Math.max(8, Math.min(tileW, tileH)));
-        } else {
-            // On desktop, use a fixed size for clarity.
-            setTileSize(DEFAULT_TILE_SIZE);
-        }
+        setTileSize(Math.max(8, Math.min(tileW, tileH)));
       } else {
         setTileSize(DEFAULT_TILE_SIZE);
       }
     };
 
-    // Calculate on mount and on window resize
     calculateAndSetTileSize();
     const observer = new ResizeObserver(calculateAndSetTileSize);
     if(gameAreaRef.current) {
@@ -115,13 +112,25 @@ export const App: React.FC = () => {
 
   return (
     <div className="w-screen h-screen flex flex-col items-center justify-start p-2 md:p-4 font-sans overflow-hidden">
-      <h1 className="flex-shrink-0 text-3xl md:text-4xl font-bold text-cyan-300 my-2 md:my-4 drop-shadow-[0_3px_3px_rgba(0,0,0,0.7)] tracking-wider">
+      <h1 className="flex-shrink-0 text-3xl md:text-4xl font-bold text-cyan-300 my-2 drop-shadow-[0_3px_3px_rgba(0,0,0,0.7)] tracking-wider">
         Poho's Great Escape
       </h1>
       
+      {/* Mobile Power-up bar */}
+      {isMobile && isGameActive && (
+          <div className="flex-shrink-0 w-full flex justify-center items-center gap-4 py-2">
+              {inventory.map((p, i) => (
+                  <PowerUpInventoryIcon key={i} type={p} onClick={() => usePowerUp(p, i)} />
+              ))}
+              {Array(3 - inventory.length).fill(0).map((_, i) => (
+                  <div key={i} className="w-12 h-12 rounded-full bg-slate-700 border-4 border-slate-600"></div>
+              ))}
+          </div>
+      )}
+
       <div className="w-full flex-grow flex md:flex-row flex-col justify-center items-stretch md:items-center gap-4 overflow-hidden">
         {/* Game Board Container */}
-        <div ref={gameAreaRef} className="relative flex justify-center items-center w-full flex-grow md:flex-grow-0 md:w-auto md:h-auto">
+        <div ref={gameAreaRef} className="relative flex justify-center items-center w-full flex-grow md:h-full">
           {isGameActive && maze.length > 0 && (
             <GameBoard maze={maze} player={player} bots={bots} powerUps={powerUps} exit={exit} traps={traps} distraction={distraction} tileSize={tileSize} />
           )}
@@ -145,32 +154,26 @@ export const App: React.FC = () => {
             </div>
              <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 text-slate-300">
                 <h3 className="text-xl font-bold text-pink-400 mb-2">Controls</h3>
-                {isMobile ? (
-                    <p>Use the on-screen controls below.</p>
-                ) : (
-                    <>
-                        <p><span className="font-mono bg-slate-700 px-2 py-1 rounded">WASD</span> or <span className="font-mono bg-slate-700 px-2 py-1 rounded">Arrow Keys</span> to move.</p>
-                        <p><span className="font-mono bg-slate-700 px-2 py-1 rounded">1, 2, 3</span> to use power-ups.</p>
-                    </>
-                )}
+                 <>
+                    <p><span className="font-mono bg-slate-700 px-2 py-1 rounded">WASD</span> or <span className="font-mono bg-slate-700 px-2 py-1 rounded">Arrow Keys</span> to move.</p>
+                    <p><span className="font-mono bg-slate-700 px-2 py-1 rounded">1, 2, 3</span> to use power-ups.</p>
+                </>
             </div>
             <div className="hidden md:block">
                 <Leaderboard gameStatus={gameStatus} />
             </div>
         </div>
-        
-        {/* UI Panel - Mobile "GameBoy" Controls */}
-        {isMobile && isGameActive && (
-            <div className="flex-shrink-0 w-full pt-2">
-                <ControlPad
-                    level={level}
-                    inventory={inventory}
-                    onDirectionPress={movePlayer}
-                    onPowerUpPress={usePowerUp}
-                />
-            </div>
-        )}
       </div>
+        
+      {/* Mobile "GameBoy" Controls */}
+      {isMobile && isGameActive && (
+          <div className="flex-shrink-0 w-full mt-auto mb-1">
+              <ControlPad
+                  level={level}
+                  onDirectionPress={movePlayer}
+              />
+          </div>
+      )}
 
       <Modal title="Main Menu" isOpen={gameStatus === GameStatus.Menu}>
         <div className="space-y-3">
