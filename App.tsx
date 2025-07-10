@@ -6,7 +6,7 @@ import GameBoard from './components/GameBoard';
 import Modal from './components/Modal';
 import Leaderboard from './components/Leaderboard';
 import { DEFAULT_TILE_SIZE, MAZE_WIDTH, MAZE_HEIGHT } from './constants';
-import ControlPad from './components/ControlPad';
+import GameboyFrame from './components/GameboyFrame';
 
 const PowerUpInventoryIcon: React.FC<{ type: PowerUpType; onClick: () => void; isSelected?: boolean }> = ({ type, onClick, isSelected }) => {
   const styles: { [key in PowerUpType]: { icon: string; color: string; key: string } } = {
@@ -41,6 +41,8 @@ export const App: React.FC = () => {
   useEffect(() => {
     const mobileCheck = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     setIsMobile(mobileCheck);
+    // For development: uncomment the line below to force mobile view
+    // setIsMobile(true);
   }, []);
 
   // Reset selected power-up on new level or game start
@@ -114,9 +116,22 @@ export const App: React.FC = () => {
     const powerUpType = inventory[selectedPowerUpIndex];
     if (powerUpType !== undefined) {
       usePowerUp(powerUpType, selectedPowerUpIndex);
-      // After using a powerup, inventory re-indexes. Reset selection to the new first item.
       setSelectedPowerUpIndex(0);
     }
+  };
+  
+  const handleSelectNextPowerUp = () => {
+    if (inventory.length > 0) {
+        setSelectedPowerUpIndex(prev => (prev + 1) % inventory.length);
+    }
+  };
+
+  const handleTogglePause = () => {
+      if (gameStatus === GameStatus.Playing) {
+          setGameStatus(GameStatus.Paused);
+      } else if (gameStatus === GameStatus.Paused) {
+          setGameStatus(GameStatus.Playing);
+      }
   };
 
   const handleBackToMenu = () => setGameStatus(GameStatus.Menu);
@@ -125,47 +140,94 @@ export const App: React.FC = () => {
 
   const isGameActive = [GameStatus.Playing, GameStatus.Paused, GameStatus.Victory, GameStatus.GameOver].includes(gameStatus);
 
+  if (isMobile) {
+    return (
+        <div className="w-screen h-screen bg-slate-900 font-sans overflow-hidden flex items-center justify-center">
+            <GameboyFrame
+                level={level}
+                inventory={inventory}
+                selectedPowerUpIndex={selectedPowerUpIndex}
+                onDirectionPress={movePlayer}
+                onActionPress={handleUseSelectedPowerUp}
+                onSelectPress={handleSelectNextPowerUp}
+                onStartPress={handleTogglePause}
+            >
+              <div ref={gameAreaRef} className="w-full h-full flex justify-center items-center">
+                  {isGameActive && maze.length > 0 && (
+                    <GameBoard maze={maze} player={player} bots={bots} powerUps={powerUps} exit={exit} traps={traps} distraction={distraction} tileSize={tileSize} />
+                  )}
+              </div>
+            </GameboyFrame>
+
+            {/* Modals will overlay the Gameboy frame */}
+            <Modal title="Main Menu" isOpen={gameStatus === GameStatus.Menu}>
+                <div className="space-y-3">
+                    <button onClick={() => setGameStatus(GameStatus.NameInput)} className={`${commonButtonClass} bg-pink-600 hover:bg-pink-500`}>Play</button>
+                    <button onClick={() => setGameStatus(GameStatus.HighScores)} className={`${commonButtonClass} bg-cyan-600 hover:bg-cyan-500`}>High Scores</button>
+                    <button onClick={() => setGameStatus(GameStatus.Credits)} className={`${commonButtonClass} bg-slate-600 hover:bg-slate-500`}>Credits</button>
+                </div>
+            </Modal>
+            <Modal title="Enter Your Name" isOpen={gameStatus === GameStatus.NameInput}>
+                <p>Help Poho escape the yarn labyrinth! Reach the yarn basket 🧺 to win.</p>
+                <p>Avoid the menacing Thread-Bots 🤖.</p>
+                <p className="mt-4 text-cyan-300 font-bold">Use the on-screen controls to play!</p>
+                <div className="mt-4 space-y-3">
+                    <input type="text" placeholder="Enter your name" value={playerNameInput} onChange={(e) => setPlayerNameInput(e.target.value)} className="w-full bg-slate-900 border-2 border-slate-600 focus:border-cyan-400 focus:ring-cyan-400 rounded-lg p-3 text-white placeholder-slate-400 transition" maxLength={15} />
+                    <button onClick={handleStartGame} disabled={!playerNameInput.trim()} className={`${commonButtonClass} bg-pink-600 hover:bg-pink-500 disabled:bg-pink-800`}>Start Game</button>
+                    <button onClick={handleBackToMenu} className={`${commonButtonClass} bg-slate-600 hover:bg-slate-500`}>Back</button>
+                </div>
+            </Modal>
+            <Modal title="🏆 High Scores" isOpen={gameStatus === GameStatus.HighScores}>
+                <div className="max-h-64 overflow-y-auto"><Leaderboard gameStatus={gameStatus} /></div>
+                <button onClick={handleBackToMenu} className={`${commonButtonClass} mt-4 bg-slate-600 hover:bg-slate-500`}>Back</button>
+            </Modal>
+            <Modal title="Credits" isOpen={gameStatus === GameStatus.Credits}>
+                <p className="text-xl">Made by</p>
+                <p className="text-2xl font-bold text-cyan-300">Naziba Zaman</p>
+                <button onClick={handleBackToMenu} className={`${commonButtonClass} mt-4 bg-slate-600 hover:bg-slate-500`}>Back</button>
+            </Modal>
+            <Modal title="Game Over" isOpen={gameStatus === GameStatus.GameOver}>
+                <p className="text-xl">Poho got tangled!</p>
+                <p>You reached level {level}.</p>
+                <div className="my-4 border-y-2 border-slate-700 py-4 max-h-48 overflow-y-auto"><Leaderboard gameStatus={gameStatus}/></div>
+                <div className="flex flex-col space-y-3 mt-2">
+                    <button onClick={() => setGameStatus(GameStatus.NameInput)} className={`${commonButtonClass} bg-cyan-600 hover:bg-cyan-500`}>Play Again</button>
+                    <button onClick={handleBackToMenu} className={`${commonButtonClass} bg-slate-600 hover:bg-slate-500`}>Main Menu</button>
+                </div>
+            </Modal>
+            <Modal title="You Win!" isOpen={gameStatus === GameStatus.Victory}>
+                <p className="text-xl">Poho escaped!</p>
+                <p>You completed level {level}.</p>
+                <button onClick={nextLevel} className={`${commonButtonClass} mt-4 bg-purple-600 hover:bg-purple-500`}>Next Level</button>
+            </Modal>
+            <Modal title="Paused" isOpen={gameStatus === GameStatus.Paused}>
+                <p className="text-xl">Game Paused</p>
+                <div className="flex flex-col space-y-3 mt-4">
+                    <button onClick={handleTogglePause} className={`${commonButtonClass} bg-cyan-600 hover:bg-cyan-500`}>Resume</button>
+                    <button onClick={handleBackToMenu} className={`${commonButtonClass} bg-slate-600 hover:bg-slate-500`}>Main Menu</button>
+                </div>
+            </Modal>
+        </div>
+    );
+  }
+
+  // Desktop View
   return (
     <div className="w-screen h-screen flex flex-col items-center justify-start p-2 md:p-4 font-sans overflow-hidden">
       <h1 className="flex-shrink-0 text-3xl md:text-4xl font-bold text-cyan-300 my-2 drop-shadow-[0_3px_3px_rgba(0,0,0,0.7)] tracking-wider">
         Poho's Great Escape
       </h1>
       
-      {/* Mobile Top UI */}
-      {isMobile && isGameActive && (
-        <div className="flex-shrink-0 w-full flex flex-col items-center gap-2 py-2">
-          {/* Inventory for selection */}
-          <div className="flex justify-center items-center gap-4">
-              {inventory.map((p, i) => (
-                  <PowerUpInventoryIcon
-                      key={i}
-                      type={p}
-                      isSelected={i === selectedPowerUpIndex}
-                      onClick={() => setSelectedPowerUpIndex(i)}
-                  />
-              ))}
-              {Array(3 - inventory.length).fill(0).map((_, i) => (
-                  <div key={i} className="w-12 h-12 rounded-full bg-slate-700 border-4 border-slate-600"></div>
-              ))}
-          </div>
-          {/* Level Display */}
-          <div className="bg-slate-800/80 px-4 py-1 rounded-xl border-2 border-slate-600">
-            <span className="text-lg font-bold text-pink-400">Level: </span>
-            <span className="text-xl font-mono text-white">{level}</span>
-          </div>
-        </div>
-      )}
-
       <div className="w-full md:flex-grow flex md:flex-row flex-col justify-start md:justify-center items-center md:items-stretch gap-4 overflow-hidden">
         {/* Game Board Container */}
-        <div ref={gameAreaRef} className="relative flex justify-center items-center w-full md:flex-grow md:h-full aspect-[21/11] md:aspect-auto">
+        <div ref={gameAreaRef} className="relative flex justify-center items-center w-full md:flex-grow md:h-full">
           {isGameActive && maze.length > 0 && (
             <GameBoard maze={maze} player={player} bots={bots} powerUps={powerUps} exit={exit} traps={traps} distraction={distraction} tileSize={tileSize} />
           )}
         </div>
 
         {/* UI Panel - Desktop Only */}
-        <div className={`w-full md:w-72 flex-shrink-0 space-y-4 ${!isMobile && isGameActive ? 'flex flex-col' : 'hidden'}`}>
+        <div className={`w-full md:w-72 flex-shrink-0 space-y-4 ${isGameActive ? 'flex flex-col' : 'hidden'}`}>
             <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
                 <h2 className="text-2xl font-bold text-pink-400">Level: {level}</h2>
             </div>
@@ -193,17 +255,6 @@ export const App: React.FC = () => {
         </div>
       </div>
         
-      {/* Mobile "GameBoy" Controls */}
-      {isMobile && isGameActive && (
-          <div className="flex-shrink-0 w-full mt-2 mb-1">
-              <ControlPad
-                  onDirectionPress={movePlayer}
-                  onUsePowerUp={handleUseSelectedPowerUp}
-                  selectedPowerUpType={inventory[selectedPowerUpIndex]}
-              />
-          </div>
-      )}
-
       <Modal title="Main Menu" isOpen={gameStatus === GameStatus.Menu}>
         <div className="space-y-3">
             <button onClick={() => setGameStatus(GameStatus.NameInput)} className={`${commonButtonClass} bg-pink-600 hover:bg-pink-500`}>Play</button>
