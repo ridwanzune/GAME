@@ -1,5 +1,4 @@
 
-
 export const DEFAULT_TILE_SIZE = 40; // in pixels
 export const MAZE_WIDTH = 21; // odd number for maze generator
 export const MAZE_HEIGHT = 11; // odd number for maze generator, was 15
@@ -19,3 +18,4 @@ export const DISTRACTION_DURATION = 25; // was 50 ticks
 export const POWERUP_COUNT = 5;
 
 export const POHO_IMAGE_URL = 'https://res.cloudinary.com/dy80ftu9k/image/upload/v1752147586/ChatGPT_Image_Jun_28__2025__09_51_54_AM-removebg-preview_cblzqm.png';
+export const BOT_IMAGE_URL = 'https://res.cloudinary.com/dy80ftu9k/image/upload/v1752186202/360_F_582636914_lGsmnoEcNquSIQDc2zNyGOo58pLscE1Y-removebg-preview_tclm2b.png';

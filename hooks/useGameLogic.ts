@@ -156,6 +156,11 @@ export const useGameLogic = () => {
       setGameStatus(GameStatus.Playing);
   }, [level, resetLevel]);
 
+  const retryLevel = useCallback(() => {
+    resetLevel(level);
+    setGameStatus(GameStatus.Playing);
+  }, [level, resetLevel]);
+
   const usePowerUp = useCallback((type: PowerUpType, index: number) => {
     if (gameStatus !== GameStatus.Playing) return;
     
@@ -359,5 +364,5 @@ export const useGameLogic = () => {
     }
   }, [gameStatus, playerName, level]);
   
-  return { gameStatus, level, maze, player, bots, powerUps, exit, inventory, traps, distraction, setGameStatus, startGame, nextLevel, movePlayer, usePowerUp };
+  return { gameStatus, level, maze, player, bots, powerUps, exit, inventory, traps, distraction, setGameStatus, startGame, nextLevel, movePlayer, usePowerUp, retryLevel };
 };

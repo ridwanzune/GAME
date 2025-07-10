@@ -29,7 +29,7 @@ const PowerUpInventoryIcon: React.FC<{ type: PowerUpType; onClick: () => void; i
 export const App: React.FC = () => {
   const {
     gameStatus, level, maze, player, bots, powerUps, exit, inventory, traps, distraction,
-    setGameStatus, startGame, nextLevel, movePlayer, usePowerUp
+    setGameStatus, startGame, nextLevel, movePlayer, usePowerUp, retryLevel
   } = useGameLogic();
   
   const [playerNameInput, setPlayerNameInput] = useState('');
@@ -191,7 +191,7 @@ export const App: React.FC = () => {
                 <p>You reached level {level}.</p>
                 <div className="my-4 border-y-2 border-slate-700 py-4 max-h-48 overflow-y-auto"><Leaderboard gameStatus={gameStatus}/></div>
                 <div className="flex flex-col space-y-3 mt-2">
-                    <button onClick={() => setGameStatus(GameStatus.NameInput)} className={`${commonButtonClass} bg-cyan-600 hover:bg-cyan-500`}>Play Again</button>
+                    <button onClick={retryLevel} className={`${commonButtonClass} bg-cyan-600 hover:bg-cyan-500`}>Retry Level</button>
                     <button onClick={handleBackToMenu} className={`${commonButtonClass} bg-slate-600 hover:bg-slate-500`}>Main Menu</button>
                 </div>
             </Modal>
@@ -290,7 +290,7 @@ export const App: React.FC = () => {
         <p>You reached level {level}.</p>
         <div className="my-4 border-y-2 border-slate-700 py-4 max-h-48 overflow-y-auto"><Leaderboard gameStatus={gameStatus}/></div>
         <div className="flex flex-col space-y-3 mt-2">
-            <button onClick={() => setGameStatus(GameStatus.NameInput)} className={`${commonButtonClass} bg-cyan-600 hover:bg-cyan-500`}>Play Again</button>
+            <button onClick={retryLevel} className={`${commonButtonClass} bg-cyan-600 hover:bg-cyan-500`}>Retry Level</button>
             <button onClick={handleBackToMenu} className={`${commonButtonClass} bg-slate-600 hover:bg-slate-500`}>Main Menu</button>
         </div>
       </Modal>

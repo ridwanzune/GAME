@@ -1,10 +1,12 @@
 // This is a Vercel Serverless Function that uses the web-standard Request and Response objects.
 
-// Environment variables to be set in Vercel
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_REPO_OWNER = process.env.GITHUB_REPO_OWNER;
-const GITHUB_REPO_NAME = process.env.GITHUB_REPO_NAME;
-const SCORES_FILE_PATH = 'data/highscores.json';
+// IMPORTANT: For production, these should ideally be set as environment variables
+// in your deployment platform (e.g., Vercel) for security reasons.
+// For demonstration and direct functionality based on your request, they are hardcoded here.
+const GITHUB_TOKEN = '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';
+const GITHUB_REPO_OWNER = 'ridwanzune';
+const GITHUB_REPO_NAME = 'GAME';
+const SCORES_FILE_PATH = 'data/highscores.json'; // Path to highscores.json within your repository
 const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/contents/${SCORES_FILE_PATH}`;
 
 const MAX_SCORES_DISPLAY = 10;
@@ -20,9 +22,10 @@ interface HighScore {
  * Throws a detailed error for other issues (e.g., bad credentials).
  */
 async function getScoreLogAndSha(): Promise<{ scores: HighScore[]; sha: string | null }> {
-  if (!GITHUB_TOKEN || !GITHUB_REPO_OWNER || !GITHUB_REPO_NAME) {
-    throw new Error('Server configuration error: Missing GitHub environment variables in Vercel.');
-  }
+  // In a production environment with environment variables, you would keep this check:
+  // if (!GITHUB_TOKEN || !GITHUB_REPO_OWNER || !GITHUB_REPO_NAME) {
+  //   throw new Error('Server configuration error: Missing GitHub environment variables.');
+  // }
     
   const headers = {
     'Authorization': `Bearer ${GITHUB_TOKEN}`,
@@ -34,17 +37,19 @@ async function getScoreLogAndSha(): Promise<{ scores: HighScore[]; sha: string |
 
   if (response.status === 404) {
     // This is a normal condition if no scores have been submitted yet.
+    // The file will be created on the first POST request.
     return { scores: [], sha: null };
   }
 
   if (!response.ok) {
     const errorBody = await response.text();
     console.error(`GitHub API GET Error: Status ${response.status}. Response: ${errorBody}`);
-    throw new Error(`Failed to fetch scores from GitHub. Status: ${response.status}. Please verify your GITHUB_TOKEN and repository configuration in Vercel.`);
+    throw new Error(`Failed to fetch scores from GitHub. Status: ${response.status}. Please verify your GITHUB_TOKEN and repository configuration.`);
   }
 
   const data = await response.json();
   if (!data.content) {
+    // If content is empty but file exists, return empty scores with SHA
     return { scores: [], sha: data.sha };
   }
 
@@ -73,7 +78,7 @@ export default async function handler(req: Request) {
   const responseHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Content-Type': 'application/json',
-    'Cache-Control': 'no-store, max-age=0',
+    'Cache-Control': 'no-store, max-age=0', // Ensure no caching for dynamic scores
   };
 
   try {
@@ -107,7 +112,7 @@ export default async function handler(req: Request) {
       const updatedScores = [...existingScores, newScore];
       
       // Replace Node.js Buffer with web-standard APIs for base64 encoding.
-      const jsonString = JSON.stringify(updatedScores, null, 2);
+      const jsonString = JSON.stringify(updatedScores, null, 2); // Pretty print JSON
       const utf8Bytes = new TextEncoder().encode(jsonString);
       // btoa expects a binary string, so we convert each byte to a character.
       // String.fromCharCode.apply is used to handle large arrays safely.
@@ -119,6 +124,7 @@ export default async function handler(req: Request) {
         content,
       };
 
+      // Include SHA only if the file already exists (for updates)
       if (sha) {
         body.sha = sha;
       }
@@ -138,7 +144,7 @@ export default async function handler(req: Request) {
       if (!putResponse.ok) {
         const errorText = await putResponse.text();
         console.error(`GitHub API PUT Error (${putResponse.status}):`, errorText);
-        throw new Error(`Failed to save score to GitHub. This can happen if the GITHUB_TOKEN lacks 'repo' scope or if the repository name is incorrect in Vercel.`);
+        throw new Error(`Failed to save score to GitHub. This can happen if the GITHUB_TOKEN lacks 'repo' scope or if the repository name is incorrect.`);
       }
 
       return new Response(JSON.stringify({ success: true }), { status: 200, headers: responseHeaders });

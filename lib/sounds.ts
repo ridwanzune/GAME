@@ -1,13 +1,14 @@
+
 const sounds: { [key: string]: HTMLAudioElement } = {};
 
 const soundSources = {
-  move: 'https://actions.google.com/sounds/v1/movement/step_wood_plank_solid.ogg',
-  collect: 'https://actions.google.com/sounds/v1/coins/coin_drop.ogg',
-  use: 'https://actions.google.com/sounds/v1/switches/switch_on.ogg',
-  break: 'https://actions.google.com/sounds/v1/impacts/wood_crack.ogg',
-  win: 'https://actions.google.com/sounds/v1/events/victory_dance.ogg',
-  lose: 'https://actions.google.com/sounds/v1/events/game_over.ogg',
-  stun: 'https://actions.google.com/sounds/v1/impacts/hit_on_metal.ogg',
+  move: 'https://cdn.pixabay.com/audio/2022/10/16/audio_a9f13f7356.mp3',
+  collect: 'https://cdn.pixabay.com/audio/2022/03/10/audio_c3b092d37c.mp3',
+  use: 'https://cdn.pixabay.com/audio/2022/04/06/audio_51f61975e8.mp3',
+  break: 'https://cdn.pixabay.com/audio/2023/04/24/audio_9091333d02.mp3',
+  win: 'https://cdn.pixabay.com/audio/2022/01/21/audio_a11972a975.mp3',
+  lose: 'https://cdn.pixabay.com/audio/2022/02/21/audio_03166d860f.mp3',
+  stun: 'https://cdn.pixabay.com/audio/2022/03/24/audio_34b079d324.mp3',
 };
 
 // Preload sounds for better performance
@@ -19,7 +20,14 @@ Object.entries(soundSources).forEach(([name, src]) => {
 
 export const playSound = (name: keyof typeof soundSources) => {
   if (sounds[name]) {
-    sounds[name].currentTime = 0;
-    sounds[name].play().catch(e => console.error(`Could not play sound: ${name}`, e));
+    // Clone the preloaded audio element to allow for overlapping sounds (e.g., rapid movement).
+    // This is more robust than resetting the currentTime of a single instance.
+    const sound = sounds[name].cloneNode(true) as HTMLAudioElement;
+    sound.play().catch(e => {
+        // This error can happen if the user hasn't interacted with the page yet (autoplay policies).
+        // It can also happen if the audio file format is not supported or the URL is invalid.
+        // We are replacing the URLs to ensure they are valid and use standard mp3 format.
+        console.error(`Could not play sound: ${name}`, e)
+    });
   }
 };
