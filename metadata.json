@@ -1,0 +1,6 @@
+{
+  "name": "Poho's Great Escape: The Yarn Labyrinth",
+  "description": "A top-down maze chase game where you guide Poho the kitten through procedurally generated yarn labyrinths, avoiding Thread-Bots and using power-ups to escape.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
