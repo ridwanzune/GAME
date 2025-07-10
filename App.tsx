@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { useGameLogic } from './hooks/useGameLogic';
 import { GameStatus, Direction, PowerUpType } from './types';
@@ -6,7 +7,7 @@ import GameBoard from './components/GameBoard';
 import Modal from './components/Modal';
 import Leaderboard from './components/Leaderboard';
 import { DEFAULT_TILE_SIZE, MAZE_WIDTH, MAZE_HEIGHT } from './constants';
-import MobileOverlay from './components/MobileOverlay';
+import ControlPad from './components/ControlPad';
 
 const PowerUpInventoryIcon: React.FC<{ type: PowerUpType; onClick: () => void }> = ({ type, onClick }) => {
   const styles: { [key in PowerUpType]: { icon: string; color: string; key: string } } = {
@@ -26,7 +27,7 @@ const PowerUpInventoryIcon: React.FC<{ type: PowerUpType; onClick: () => void }>
 export const App: React.FC = () => {
   const {
     gameStatus, level, maze, player, bots, powerUps, exit, inventory, traps, distraction,
-    setGameStatus, startGame, nextLevel, movePlayer, usePowerUp, enableTiltControls
+    setGameStatus, startGame, nextLevel, movePlayer, usePowerUp
   } = useGameLogic();
   
   const [playerNameInput, setPlayerNameInput] = useState('');
@@ -41,23 +42,37 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     const calculateAndSetTileSize = () => {
-      if (isMobile) {
-        if (gameAreaRef.current) {
-          const { clientWidth, clientHeight } = gameAreaRef.current;
-          const tileW = Math.floor(clientWidth / MAZE_WIDTH);
-          const tileH = Math.floor(clientHeight / MAZE_HEIGHT);
-          // For mobile, fill the available space.
-          setTileSize(Math.max(8, Math.min(tileW, tileH)));
+      if (gameAreaRef.current) {
+        const { clientWidth, clientHeight } = gameAreaRef.current;
+        const tileW = Math.floor(clientWidth / MAZE_WIDTH);
+        const tileH = Math.floor(clientHeight / MAZE_HEIGHT);
+        
+        if (isMobile) {
+            // On mobile, prioritize fitting the maze in the available area.
+            setTileSize(Math.max(8, Math.min(tileW, tileH)));
+        } else {
+            // On desktop, use a fixed size for clarity.
+            setTileSize(DEFAULT_TILE_SIZE);
         }
       } else {
-        // For desktop, use the fixed default size.
         setTileSize(DEFAULT_TILE_SIZE);
       }
     };
 
+    // Calculate on mount and on window resize
     calculateAndSetTileSize();
+    const observer = new ResizeObserver(calculateAndSetTileSize);
+    if(gameAreaRef.current) {
+      observer.observe(gameAreaRef.current);
+    }
     window.addEventListener('resize', calculateAndSetTileSize);
-    return () => window.removeEventListener('resize', calculateAndSetTileSize);
+
+    return () => {
+      window.removeEventListener('resize', calculateAndSetTileSize);
+      if(gameAreaRef.current){
+        observer.unobserve(gameAreaRef.current);
+      }
+    }
   }, [isMobile, gameStatus]);
 
 
@@ -85,35 +100,9 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  const handleEnterLandscapeAndFullscreen = async () => {
-    try {
-        if (document.documentElement.requestFullscreen) {
-            await document.documentElement.requestFullscreen();
-        }
-        if (screen.orientation && (screen.orientation as any).lock) {
-            await (screen.orientation as any).lock('landscape');
-        }
-    } catch (err) {
-        console.error("Could not activate landscape/fullscreen mode:", err);
-    }
-  };
-
-  const handleExitFullScreen = () => {
-    if (document.exitFullscreen) {
-        document.exitFullscreen();
-    }
-    if (screen.orientation && (screen.orientation as any).unlock) {
-        (screen.orientation as any).unlock();
-    }
-  };
-  
   const handleStartGame = async () => {
     const trimmedName = playerNameInput.trim();
     if (trimmedName) {
-      if (isMobile) {
-        await enableTiltControls();
-        await handleEnterLandscapeAndFullscreen();
-      }
       startGame(trimmedName);
     }
   };
@@ -130,14 +119,11 @@ export const App: React.FC = () => {
         Poho's Great Escape
       </h1>
       
-      <div className="w-full flex-grow flex md:flex-row flex-col justify-center items-center gap-8 overflow-hidden">
+      <div className="w-full flex-grow flex md:flex-row flex-col justify-center items-stretch md:items-center gap-4 overflow-hidden">
         {/* Game Board Container */}
-        <div ref={gameAreaRef} className="relative flex justify-center items-center w-full h-full md:w-auto md:h-auto">
+        <div ref={gameAreaRef} className="relative flex justify-center items-center w-full flex-grow md:flex-grow-0 md:w-auto md:h-auto">
           {isGameActive && maze.length > 0 && (
-            <>
-              <GameBoard maze={maze} player={player} bots={bots} powerUps={powerUps} exit={exit} traps={traps} distraction={distraction} tileSize={tileSize} />
-              {isMobile && <MobileOverlay level={level} inventory={inventory} usePowerUp={usePowerUp} onExitFullScreen={handleExitFullScreen} />}
-            </>
+            <GameBoard maze={maze} player={player} bots={bots} powerUps={powerUps} exit={exit} traps={traps} distraction={distraction} tileSize={tileSize} />
           )}
         </div>
 
@@ -159,13 +145,31 @@ export const App: React.FC = () => {
             </div>
              <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 text-slate-300">
                 <h3 className="text-xl font-bold text-pink-400 mb-2">Controls</h3>
-                <p><span className="font-mono bg-slate-700 px-2 py-1 rounded">WASD</span> or <span className="font-mono bg-slate-700 px-2 py-1 rounded">Arrow Keys</span> to move.</p>
-                <p><span className="font-mono bg-slate-700 px-2 py-1 rounded">1, 2, 3</span> to use power-ups.</p>
+                {isMobile ? (
+                    <p>Use the on-screen controls below.</p>
+                ) : (
+                    <>
+                        <p><span className="font-mono bg-slate-700 px-2 py-1 rounded">WASD</span> or <span className="font-mono bg-slate-700 px-2 py-1 rounded">Arrow Keys</span> to move.</p>
+                        <p><span className="font-mono bg-slate-700 px-2 py-1 rounded">1, 2, 3</span> to use power-ups.</p>
+                    </>
+                )}
             </div>
             <div className="hidden md:block">
                 <Leaderboard gameStatus={gameStatus} />
             </div>
         </div>
+        
+        {/* UI Panel - Mobile "GameBoy" Controls */}
+        {isMobile && isGameActive && (
+            <div className="flex-shrink-0 w-full pt-2">
+                <ControlPad
+                    level={level}
+                    inventory={inventory}
+                    onDirectionPress={movePlayer}
+                    onPowerUpPress={usePowerUp}
+                />
+            </div>
+        )}
       </div>
 
       <Modal title="Main Menu" isOpen={gameStatus === GameStatus.Menu}>
@@ -179,7 +183,7 @@ export const App: React.FC = () => {
       <Modal title="Enter Your Name" isOpen={gameStatus === GameStatus.NameInput}>
         <p>Help Poho escape the yarn labyrinth! Reach the yarn basket 🧺 to win.</p>
         <p>Avoid the menacing Thread-Bots 🤖.</p>
-        {isMobile && <p className="mt-4 text-cyan-300 font-bold">Tilt your device to move. Enable landscape for the best experience!</p>}
+        {isMobile && <p className="mt-4 text-cyan-300 font-bold">Use the on-screen D-pad and buttons to play!</p>}
         <div className="mt-4 space-y-3">
              <input type="text" placeholder="Enter your name" value={playerNameInput} onChange={(e) => setPlayerNameInput(e.target.value)} className="w-full bg-slate-900 border-2 border-slate-600 focus:border-cyan-400 focus:ring-cyan-400 rounded-lg p-3 text-white placeholder-slate-400 transition" maxLength={15} />
             <button onClick={handleStartGame} disabled={!playerNameInput.trim()} className={`${commonButtonClass} bg-pink-600 hover:bg-pink-500 disabled:bg-pink-800`}>Start Game</button>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { GameStatus, Cell, PlayerState, BotState, PowerUp, PowerUpType, Trap, Position, Direction } from '../types';
-import { MAZE_WIDTH, MAZE_HEIGHT, BOT_INITIAL_SPEED, GAME_TICK_MS, POWERUP_COUNT, SPEED_BOOST_DURATION, SPEED_BOOST_MULTIPLIER, BOT_STUN_DURATION, TRAP_DURATION, DISTRACTION_DURATION, BOT_PATH_RECALCULATION_CHANCE, TILT_SENSITIVITY_THRESHOLD } from '../constants';
+import { MAZE_WIDTH, MAZE_HEIGHT, BOT_INITIAL_SPEED, GAME_TICK_MS, POWERUP_COUNT, SPEED_BOOST_DURATION, SPEED_BOOST_MULTIPLIER, BOT_STUN_DURATION, TRAP_DURATION, DISTRACTION_DURATION, BOT_PATH_RECALCULATION_CHANCE } from '../constants';
 import { saveHighScore } from '../lib/api';
 
 // A robust way to get numeric enum values for power-up types.
@@ -20,8 +20,6 @@ export const useGameLogic = () => {
   const [exit, setExit] = useState<Position>({ x: MAZE_WIDTH - 2, y: MAZE_HEIGHT - 2 });
   const [inventory, setInventory] = useState<PowerUpType[]>([]);
   const [distraction, setDistraction] = useState<Position & { ticksRemaining: number } | null>(null);
-  const [tiltEnabled, setTiltEnabled] = useState(false);
-  const [tiltDirection, setTiltDirection] = useState<Direction>(Direction.None);
 
   const generateMaze = useCallback(() => {
     const newMaze: Cell[][] = Array.from({ length: MAZE_HEIGHT }, (_, y) =>
@@ -74,8 +72,10 @@ export const useGameLogic = () => {
       }
     }
     
-    // Create loops by removing some walls
-    const wallsToRemove = Math.floor(MAZE_WIDTH * MAZE_HEIGHT * 0.02) + level; // Denser maze
+    // Create loops by removing some walls. Maze gets denser as level increases.
+    const wallsToRemoveFactor = Math.max(0.01, 0.07 - (Math.min(level, 15) * 0.004));
+    const wallsToRemove = Math.floor(MAZE_WIDTH * MAZE_HEIGHT * wallsToRemoveFactor);
+
     for (let i = 0; i < wallsToRemove; i++) {
         const rx = 1 + Math.floor(Math.random() * (MAZE_WIDTH - 2));
         const ry = 1 + Math.floor(Math.random() * (MAZE_HEIGHT - 2));
@@ -111,8 +111,10 @@ export const useGameLogic = () => {
     const newExit = { x: MAZE_WIDTH - 2, y: MAZE_HEIGHT - 2 };
     setExit(newExit);
     
+    // Add one bot every two levels.
+    const numBots = Math.floor((newLevel - 1) / 2) + 1;
     const newBots: BotState[] = [];
-    for (let i = 0; i < newLevel; i++) {
+    for (let i = 0; i < numBots; i++) {
         const botIndex = Math.floor(Math.random() * emptyCells.length);
         const pos = emptyCells.splice(botIndex, 1)[0];
         if (pos && (pos.x > MAZE_WIDTH/2 || pos.y > MAZE_HEIGHT/2)) { // spawn away from player
@@ -226,54 +228,11 @@ export const useGameLogic = () => {
       });
   }, [maze, gameStatus]);
   
-  const handleDeviceOrientation = useCallback((event: DeviceOrientationEvent) => {
-    const { beta, gamma } = event; // beta: front-back (-180 to 180), gamma: left-right (-90 to 90)
-    if (beta === null || gamma === null) return;
-
-    const threshold = TILT_SENSITIVITY_THRESHOLD; // Tilt sensitivity
-    let newDirection = Direction.None;
-
-    // Give priority to the larger tilt angle to avoid diagonal jitter
-    if (Math.abs(gamma) > Math.abs(beta)) {
-        if (gamma > threshold) newDirection = Direction.Right;
-        else if (gamma < -threshold) newDirection = Direction.Left;
-    } else {
-        if (beta > threshold) newDirection = Direction.Down;
-        else if (beta < -threshold) newDirection = Direction.Up;
-    }
-
-    setTiltDirection(newDirection);
-  }, []);
-
-  const enableTiltControls = useCallback(async () => {
-    // Check for iOS 13+ specific API
-    if (typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
-      try {
-        const permission = await (DeviceOrientationEvent as any).requestPermission();
-        if (permission === 'granted') {
-          window.addEventListener('deviceorientation', handleDeviceOrientation);
-          setTiltEnabled(true);
-        }
-      } catch (error) {
-        console.error("Device orientation permission denied.", error);
-      }
-    } else {
-      // For Android and other browsers that don't require explicit permission
-      window.addEventListener('deviceorientation', handleDeviceOrientation);
-      setTiltEnabled(true);
-    }
-  }, [handleDeviceOrientation]);
-
   // Main Game Loop
   useEffect(() => {
     if (gameStatus !== GameStatus.Playing) return;
 
     const gameInterval = setInterval(() => {
-       // Handle tilt-based movement first
-      if (tiltEnabled) {
-          movePlayer(tiltDirection);
-      }
-        
       // Player speed boost
       setPlayer(p => ({ ...p, speedBoost: Math.max(0, p.speedBoost - 1) }));
 
@@ -346,7 +305,7 @@ export const useGameLogic = () => {
     }, GAME_TICK_MS / (player.speedBoost > 0 ? SPEED_BOOST_MULTIPLIER : 1));
 
     return () => clearInterval(gameInterval);
-  }, [gameStatus, player, bots, exit, inventory, traps, bfs, distraction, tiltEnabled, tiltDirection, movePlayer]);
+  }, [gameStatus, player, bots, exit, inventory, traps, bfs, distraction, movePlayer]);
   
   // Save score on game over
   useEffect(() => {
@@ -355,12 +314,5 @@ export const useGameLogic = () => {
     }
   }, [gameStatus, playerName, level]);
   
-  // Cleanup for device orientation listener
-  useEffect(() => {
-      return () => {
-          window.removeEventListener('deviceorientation', handleDeviceOrientation);
-      }
-  }, [handleDeviceOrientation]);
-
-  return { gameStatus, level, maze, player, bots, powerUps, exit, inventory, traps, distraction, setGameStatus, startGame, nextLevel, movePlayer, usePowerUp, tiltEnabled, enableTiltControls };
+  return { gameStatus, level, maze, player, bots, powerUps, exit, inventory, traps, distraction, setGameStatus, startGame, nextLevel, movePlayer, usePowerUp };
 };
