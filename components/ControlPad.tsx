@@ -21,7 +21,7 @@ const DPadButton: React.FC<{
     timeoutRef.current = window.setTimeout(() => {
       intervalRef.current = window.setInterval(() => {
         onPress(direction);
-      }, GAME_TICK_MS / 2); // 2x faster continuous movement
+      }, GAME_TICK_MS / 3); // 3x faster continuous movement
     }, 200);
   };
 

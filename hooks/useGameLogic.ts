@@ -238,24 +238,35 @@ export const useGameLogic = () => {
   }, [maze]);
 
   const movePlayer = useCallback((direction: Direction) => {
-      if (gameStatus !== GameStatus.Playing || direction === Direction.None) return;
-      
-      let moved = false;
-      setPlayer(p => {
-          let { x, y } = p;
-          const currentCell = maze[y]?.[x];
-          if (!currentCell) return p;
+    if (gameStatus !== GameStatus.Playing || direction === Direction.None) return;
+    
+    setPlayer(p => {
+        const currentCell = maze[p.y]?.[p.x];
+        if (!currentCell) return p;
 
-          let newDirection = p.direction;
+        let newX = p.x;
+        let newY = p.y;
+        let moved = false;
 
-          if (direction === Direction.Up && !currentCell.walls.top) { y -= 1; newDirection = Direction.Up; moved = true;}
-          else if (direction === Direction.Down && !currentCell.walls.bottom) { y += 1; newDirection = Direction.Down; moved = true;}
-          else if (direction === Direction.Left && !currentCell.walls.left) { x -= 1; newDirection = Direction.Left; moved = true;}
-          else if (direction === Direction.Right && !currentCell.walls.right) { x += 1; newDirection = Direction.Right; moved = true;}
-          
-          if(moved) playSound('move');
-          return { ...p, x, y, direction: newDirection };
-      });
+        // Check for valid move
+        if (direction === Direction.Up && !currentCell.walls.top) { newY -= 1; moved = true; }
+        else if (direction === Direction.Down && !currentCell.walls.bottom) { newY += 1; moved = true; }
+        else if (direction === Direction.Left && !currentCell.walls.left) { newX -= 1; moved = true; }
+        else if (direction === Direction.Right && !currentCell.walls.right) { newX += 1; moved = true; }
+        
+        if (moved) {
+            playSound('move');
+            // Player moved, update position and direction
+            return { ...p, x: newX, y: newY, direction: direction };
+        } else {
+            // Player did not move, only update direction if it's different
+            if (p.direction !== direction) {
+                return { ...p, direction: direction };
+            }
+            // No change, so return original state to avoid re-render
+            return p;
+        }
+    });
   }, [maze, gameStatus]);
   
   // Main Game Loop

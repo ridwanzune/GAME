@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { PlayerState, Direction } from '../types';
 import { POHO_IMAGE_URL, GAME_TICK_MS } from '../constants';
 
@@ -9,7 +9,15 @@ interface PlayerProps {
 }
 
 const Player: React.FC<PlayerProps> = ({ player, tileSize }) => {
-  const isFlipped = player.direction === Direction.Left;
+  const lastHorizontalDirection = useRef<Direction>(Direction.Right);
+
+  useEffect(() => {
+    if (player.direction === Direction.Left || player.direction === Direction.Right) {
+      lastHorizontalDirection.current = player.direction;
+    }
+  }, [player.direction]);
+
+  const isFlipped = lastHorizontalDirection.current === Direction.Left;
 
   return (
     <div
