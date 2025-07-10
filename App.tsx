@@ -8,7 +8,7 @@ import Leaderboard from './components/Leaderboard';
 import { DEFAULT_TILE_SIZE, MAZE_WIDTH, MAZE_HEIGHT } from './constants';
 import ControlPad from './components/ControlPad';
 
-const PowerUpInventoryIcon: React.FC<{ type: PowerUpType; onClick: () => void }> = ({ type, onClick }) => {
+const PowerUpInventoryIcon: React.FC<{ type: PowerUpType; onClick: () => void; isSelected?: boolean }> = ({ type, onClick, isSelected }) => {
   const styles: { [key in PowerUpType]: { icon: string; color: string; key: string } } = {
     [PowerUpType.Speed]: { icon: '⚡️', color: 'bg-cyan-500 hover:bg-cyan-400', key: '1' },
     [PowerUpType.Trap]: { icon: '🕸️', color: 'bg-yellow-500 hover:bg-yellow-400', key: '2' },
@@ -16,13 +16,10 @@ const PowerUpInventoryIcon: React.FC<{ type: PowerUpType; onClick: () => void }>
     [PowerUpType.WallBreaker]: { icon: '🔨', color: 'bg-orange-500 hover:bg-orange-400', key: ' ' },
   };
   const style = styles[type];
-  
-  // Find which key (1,2,3) corresponds to this power-up instance in the inventory.
-  // We can't know the index here directly, so we show the icon only. 
-  // The key display is primarily a desktop hint.
-  
+  const selectedClass = isSelected ? 'ring-4 ring-cyan-400 shadow-lg' : 'border-4 border-slate-600';
+
   return (
-    <button onClick={onClick} className={`relative w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center text-2xl md:text-3xl transition-all border-4 border-slate-600 ${style.color}`}>
+    <button onClick={onClick} className={`relative w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center text-2xl md:text-3xl transition-all ${style.color} ${selectedClass}`}>
         {style.icon}
         <span className="absolute -top-2 -right-2 bg-slate-900 text-white rounded-full w-7 h-7 hidden items-center justify-center border-2 border-slate-500 font-mono md:flex">{style.key}</span>
     </button>
@@ -39,11 +36,20 @@ export const App: React.FC = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [tileSize, setTileSize] = useState(DEFAULT_TILE_SIZE);
   const gameAreaRef = useRef<HTMLDivElement>(null);
+  const [selectedPowerUpIndex, setSelectedPowerUpIndex] = useState(0);
 
   useEffect(() => {
     const mobileCheck = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     setIsMobile(mobileCheck);
   }, []);
+
+  // Reset selected power-up on new level or game start
+  useEffect(() => {
+    if (gameStatus === GameStatus.Playing) {
+      setSelectedPowerUpIndex(0);
+    }
+  }, [level, gameStatus]);
+
 
   useEffect(() => {
     const calculateAndSetTileSize = () => {
@@ -103,6 +109,15 @@ export const App: React.FC = () => {
       startGame(trimmedName);
     }
   };
+  
+  const handleUseSelectedPowerUp = () => {
+    const powerUpType = inventory[selectedPowerUpIndex];
+    if (powerUpType !== undefined) {
+      usePowerUp(powerUpType, selectedPowerUpIndex);
+      // After using a powerup, inventory re-indexes. Reset selection to the new first item.
+      setSelectedPowerUpIndex(0);
+    }
+  };
 
   const handleBackToMenu = () => setGameStatus(GameStatus.Menu);
   
@@ -116,19 +131,32 @@ export const App: React.FC = () => {
         Poho's Great Escape
       </h1>
       
-      {/* Mobile Power-up bar */}
+      {/* Mobile Top UI */}
       {isMobile && isGameActive && (
-          <div className="flex-shrink-0 w-full flex justify-center items-center gap-4 py-2">
+        <div className="flex-shrink-0 w-full flex flex-col items-center gap-2 py-2">
+          {/* Inventory for selection */}
+          <div className="flex justify-center items-center gap-4">
               {inventory.map((p, i) => (
-                  <PowerUpInventoryIcon key={i} type={p} onClick={() => usePowerUp(p, i)} />
+                  <PowerUpInventoryIcon
+                      key={i}
+                      type={p}
+                      isSelected={i === selectedPowerUpIndex}
+                      onClick={() => setSelectedPowerUpIndex(i)}
+                  />
               ))}
               {Array(3 - inventory.length).fill(0).map((_, i) => (
                   <div key={i} className="w-12 h-12 rounded-full bg-slate-700 border-4 border-slate-600"></div>
               ))}
           </div>
+          {/* Level Display */}
+          <div className="bg-slate-800/80 px-4 py-1 rounded-xl border-2 border-slate-600">
+            <span className="text-lg font-bold text-pink-400">Level: </span>
+            <span className="text-xl font-mono text-white">{level}</span>
+          </div>
+        </div>
       )}
 
-      <div className="w-full flex-grow flex md:flex-row flex-col justify-center items-stretch md:items-center gap-4 overflow-hidden">
+      <div className="w-full flex-grow flex md:flex-row flex-col justify-start md:justify-center items-stretch md:items-center gap-4 overflow-hidden">
         {/* Game Board Container */}
         <div ref={gameAreaRef} className="relative flex justify-center items-center w-full flex-grow md:h-full">
           {isGameActive && maze.length > 0 && (
@@ -167,10 +195,11 @@ export const App: React.FC = () => {
         
       {/* Mobile "GameBoy" Controls */}
       {isMobile && isGameActive && (
-          <div className="flex-shrink-0 w-full mt-auto mb-1">
+          <div className="flex-shrink-0 w-full mb-1">
               <ControlPad
-                  level={level}
                   onDirectionPress={movePlayer}
+                  onUsePowerUp={handleUseSelectedPowerUp}
+                  selectedPowerUpType={inventory[selectedPowerUpIndex]}
               />
           </div>
       )}

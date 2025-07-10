@@ -1,5 +1,6 @@
+
 import React, { useRef } from 'react';
-import { Direction } from '../types';
+import { Direction, PowerUpType } from '../types';
 import { GAME_TICK_MS } from '../constants';
 
 const DPadButton: React.FC<{
@@ -20,7 +21,7 @@ const DPadButton: React.FC<{
     timeoutRef.current = window.setTimeout(() => {
       intervalRef.current = window.setInterval(() => {
         onPress(direction);
-      }, GAME_TICK_MS * 0.9); // Make continuous movement slightly faster than one-off moves
+      }, GAME_TICK_MS / 2); // 2x faster continuous movement
     }, 200);
   };
 
@@ -45,16 +46,43 @@ const DPadButton: React.FC<{
   );
 };
 
+const PowerUpActionButton: React.FC<{
+  onClick: () => void;
+  type: PowerUpType | undefined;
+}> = ({ onClick, type }) => {
+  if (type === undefined) {
+    return <div className="w-24 h-24 rounded-full bg-slate-800 border-4 border-slate-600 flex items-center justify-center shadow-inner" />;
+  }
+
+  const styles: { [key in PowerUpType]: { icon: string; color: string } } = {
+    [PowerUpType.Speed]: { icon: '⚡️', color: 'bg-cyan-500 active:bg-cyan-400' },
+    [PowerUpType.Trap]: { icon: '🕸️', color: 'bg-yellow-500 active:bg-yellow-400' },
+    [PowerUpType.Distraction]: { icon: '🧶', color: 'bg-pink-500 active:bg-pink-400' },
+    [PowerUpType.WallBreaker]: { icon: '🔨', color: 'bg-orange-500 active:bg-orange-400' },
+  };
+  const style = styles[type];
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl transition-colors shadow-inner border-4 border-slate-500 ${style.color}`}
+    >
+      {style.icon}
+    </button>
+  );
+};
+
 
 interface ControlPadProps {
-    level: number;
     onDirectionPress: (direction: Direction) => void;
+    onUsePowerUp: () => void;
+    selectedPowerUpType: PowerUpType | undefined;
 }
 
-const ControlPad: React.FC<ControlPadProps> = ({ level, onDirectionPress }) => {
+const ControlPad: React.FC<ControlPadProps> = ({ onDirectionPress, onUsePowerUp, selectedPowerUpType }) => {
     return (
-        <div className="bg-slate-700/50 p-2 rounded-xl border border-slate-600 w-full h-full select-none">
-            <div className="flex justify-between items-center">
+        <div className="bg-slate-700/50 p-4 rounded-xl border border-slate-600 w-full h-full select-none">
+            <div className="flex justify-center items-center gap-8">
                 {/* Retro D-Pad */}
                 <div className="relative w-48 h-48">
                     <DPadButton onPress={onDirectionPress} direction={Direction.Up} gridPlacement="absolute top-0 left-1/2 -translate-x-1/2 rounded-t-2xl">▲</DPadButton>
@@ -63,16 +91,8 @@ const ControlPad: React.FC<ControlPadProps> = ({ level, onDirectionPress }) => {
                     <DPadButton onPress={onDirectionPress} direction={Direction.Down} gridPlacement="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-b-2xl">▼</DPadButton>
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-slate-600"></div>
                 </div>
-
-                {/* Level Display */}
-                <div className="bg-slate-800/80 p-4 rounded-xl border border-slate-700 text-center">
-                    <h2 className="text-xl font-bold text-pink-400">Level</h2>
-                    <p className="text-3xl font-mono text-white">{level}</p>
-                </div>
-
-                 {/* Empty space for balance */}
-                <div className="w-48 h-48 flex justify-center items-center">
-                </div>
+                {/* Action Button */}
+                <PowerUpActionButton onClick={onUsePowerUp} type={selectedPowerUpType} />
             </div>
         </div>
     );
