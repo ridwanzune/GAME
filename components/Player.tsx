@@ -1,24 +1,26 @@
 
 import React from 'react';
 import { PlayerState, Direction } from '../types';
-import { TILE_SIZE, POHO_IMAGE_URL } from '../constants';
+import { POHO_IMAGE_URL, GAME_TICK_MS } from '../constants';
 
 interface PlayerProps {
   player: PlayerState;
+  tileSize: number;
 }
 
-const Player: React.FC<PlayerProps> = ({ player }) => {
+const Player: React.FC<PlayerProps> = ({ player, tileSize }) => {
   const isFlipped = player.direction === Direction.Left;
 
   return (
     <div
-      className="absolute transition-all duration-100 ease-linear"
+      className="absolute transition-all ease-linear"
       style={{
-        width: TILE_SIZE,
-        height: TILE_SIZE,
-        left: player.x * TILE_SIZE,
-        top: player.y * TILE_SIZE,
+        width: tileSize,
+        height: tileSize,
+        left: player.x * tileSize,
+        top: player.y * tileSize,
         zIndex: 10,
+        transitionDuration: `${GAME_TICK_MS}ms`,
       }}
     >
       <img

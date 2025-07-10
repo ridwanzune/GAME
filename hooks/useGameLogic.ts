@@ -1,7 +1,8 @@
 
+
 import { useState, useEffect, useCallback } from 'react';
 import { GameStatus, Cell, PlayerState, BotState, PowerUp, PowerUpType, Trap, Position, Direction } from '../types';
-import { MAZE_WIDTH, MAZE_HEIGHT, BOT_INITIAL_SPEED, GAME_TICK_MS, POWERUP_COUNT, SPEED_BOOST_DURATION, SPEED_BOOST_MULTIPLIER, BOT_STUN_DURATION, TRAP_DURATION, DISTRACTION_DURATION, BOT_PATH_RECALCULATION_CHANCE } from '../constants';
+import { MAZE_WIDTH, MAZE_HEIGHT, BOT_INITIAL_SPEED, GAME_TICK_MS, POWERUP_COUNT, SPEED_BOOST_DURATION, SPEED_BOOST_MULTIPLIER, BOT_STUN_DURATION, TRAP_DURATION, DISTRACTION_DURATION, BOT_PATH_RECALCULATION_CHANCE, TILT_SENSITIVITY_THRESHOLD } from '../constants';
 import { saveHighScore } from '../lib/api';
 
 // A robust way to get numeric enum values for power-up types.
@@ -229,7 +230,7 @@ export const useGameLogic = () => {
     const { beta, gamma } = event; // beta: front-back (-180 to 180), gamma: left-right (-90 to 90)
     if (beta === null || gamma === null) return;
 
-    const threshold = 15; // Tilt sensitivity
+    const threshold = TILT_SENSITIVITY_THRESHOLD; // Tilt sensitivity
     let newDirection = Direction.None;
 
     // Give priority to the larger tilt angle to avoid diagonal jitter

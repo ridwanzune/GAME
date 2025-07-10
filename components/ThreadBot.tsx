@@ -1,25 +1,27 @@
 
 import React from 'react';
 import { BotState } from '../types';
-import { TILE_SIZE } from '../constants';
+import { GAME_TICK_MS } from '../constants';
 
 interface ThreadBotProps {
   bot: BotState;
+  tileSize: number;
 }
 
-const ThreadBot: React.FC<ThreadBotProps> = ({ bot }) => {
+const ThreadBot: React.FC<ThreadBotProps> = ({ bot, tileSize }) => {
   const isStunned = bot.stunned > 0;
   const isLured = !!bot.luredTo;
 
   return (
     <div
-      className="absolute transition-all duration-100 ease-linear flex items-center justify-center"
+      className="absolute transition-all ease-linear flex items-center justify-center"
       style={{
-        width: TILE_SIZE,
-        height: TILE_SIZE,
-        left: bot.x * TILE_SIZE,
-        top: bot.y * TILE_SIZE,
+        width: tileSize,
+        height: tileSize,
+        left: bot.x * tileSize,
+        top: bot.y * tileSize,
         zIndex: 9,
+        transitionDuration: `${GAME_TICK_MS}ms`,
       }}
     >
       <div className={`relative w-3/5 h-3/5 rounded-full ${isStunned ? 'bg-yellow-500 animate-pulse' : 'bg-red-600'} border-2 border-slate-400 flex items-center justify-center`}>

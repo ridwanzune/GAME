@@ -12,13 +12,14 @@ export const getHighScores = async (): Promise<HighScore[]> => {
     try {
         const response = await fetch(API_ENDPOINT);
         if (!response.ok) {
-            console.error("Failed to fetch high scores:", response.statusText);
-            return [];
+            const errorBody = await response.text();
+            console.error(`Failed to fetch high scores. Status: ${response.status}. Body: ${errorBody}`);
+            return []; // Gracefully fail for the UI
         }
         const scores: HighScore[] = await response.json();
         return scores; // The server will return them sorted
     } catch (error) {
-        console.error("Failed to retrieve high scores:", error);
+        console.error("Failed to retrieve high scores due to a network error:", error);
         return [];
     }
 };

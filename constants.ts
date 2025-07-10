@@ -1,8 +1,10 @@
 
-export const TILE_SIZE = 40; // in pixels
+
+export const DEFAULT_TILE_SIZE = 40; // in pixels
 export const MAZE_WIDTH = 21; // odd number for maze generator
 export const MAZE_HEIGHT = 11; // odd number for maze generator, was 15
 export const GAME_TICK_MS = 200; // was 100
+export const TILT_SENSITIVITY_THRESHOLD = 10; // Lowered from 15 for better response
 
 export const PLAYER_INITIAL_SPEED = 1; // tiles per tick
 export const SPEED_BOOST_DURATION = 25; // was 50 ticks
