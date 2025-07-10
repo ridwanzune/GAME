@@ -156,9 +156,9 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      <div className="w-full flex-grow flex md:flex-row flex-col justify-start md:justify-center items-stretch md:items-center gap-4 overflow-hidden">
+      <div className="w-full md:flex-grow flex md:flex-row flex-col justify-start md:justify-center items-center md:items-stretch gap-4 overflow-hidden">
         {/* Game Board Container */}
-        <div ref={gameAreaRef} className="relative flex justify-center items-center w-full flex-grow md:h-full">
+        <div ref={gameAreaRef} className="relative flex justify-center items-center w-full md:flex-grow md:h-full aspect-[21/11] md:aspect-auto">
           {isGameActive && maze.length > 0 && (
             <GameBoard maze={maze} player={player} bots={bots} powerUps={powerUps} exit={exit} traps={traps} distraction={distraction} tileSize={tileSize} />
           )}
@@ -195,7 +195,7 @@ export const App: React.FC = () => {
         
       {/* Mobile "GameBoy" Controls */}
       {isMobile && isGameActive && (
-          <div className="flex-shrink-0 w-full mb-1">
+          <div className="flex-shrink-0 w-full mt-2 mb-1">
               <ControlPad
                   onDirectionPress={movePlayer}
                   onUsePowerUp={handleUseSelectedPowerUp}
