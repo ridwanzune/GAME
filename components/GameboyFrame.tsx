@@ -40,7 +40,7 @@ const DPadButton: React.FC<{
       onMouseDown={(e) => { e.preventDefault(); handlePressStart(); }}
       onMouseUp={(e) => { e.preventDefault(); handlePressEnd(); }}
       onMouseLeave={(e) => { if (e.buttons === 1) handlePressEnd(); }}
-      className={`w-12 h-12 ${commonClasses} ${gridPlacement}`}
+      className={`w-14 h-14 ${commonClasses} ${gridPlacement}`}
     >
       {children}
     </div>
@@ -52,7 +52,7 @@ const GameboyButton: React.FC<{ onClick: () => void; children: React.ReactNode; 
 );
 
 
-const PowerUpIcon: React.FC<{ type: PowerUpType, isSelected?: boolean }> = ({ type, isSelected }) => {
+const PowerUpIcon: React.FC<{ type: PowerUpType, isSelected?: boolean, onClick?: () => void }> = ({ type, isSelected, onClick }) => {
     const styles: { [key in PowerUpType]: { icon: string; color: string } } = {
         [PowerUpType.Speed]: { icon: '⚡️', color: 'bg-cyan-500' },
         [PowerUpType.Trap]: { icon: '🕸️', color: 'bg-yellow-500' },
@@ -61,8 +61,15 @@ const PowerUpIcon: React.FC<{ type: PowerUpType, isSelected?: boolean }> = ({ ty
     };
     const style = styles[type];
     const selectedClass = isSelected ? 'ring-2 ring-cyan-300' : 'ring-2 ring-transparent';
+    const Tag = onClick ? 'button' : 'div';
+    const cursorClass = onClick ? 'cursor-pointer' : '';
 
-    return <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg ${style.color} ${selectedClass} transition-all`}>{style.icon}</div>;
+
+    return (
+        <Tag onClick={onClick} className={`w-8 h-8 rounded-full flex items-center justify-center text-lg ${style.color} ${selectedClass} ${cursorClass} transition-all`}>
+            {style.icon}
+        </Tag>
+    );
 };
 
 // --- Main Gameboy Frame Component ---
@@ -74,13 +81,13 @@ interface GameboyFrameProps {
     selectedPowerUpIndex: number;
     onDirectionPress: (direction: Direction) => void;
     onActionPress: () => void;
-    onSelectPress: () => void;
+    onSelectPowerUp: (index: number) => void;
     onStartPress: () => void;
 }
 
 const GameboyFrame: React.FC<GameboyFrameProps> = ({
     children, level, inventory, selectedPowerUpIndex,
-    onDirectionPress, onActionPress, onSelectPress, onStartPress
+    onDirectionPress, onActionPress, onSelectPowerUp, onStartPress
 }) => {
     const noiseStyle = {
         backgroundImage: `linear-gradient(rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.02)), radial-gradient(circle, rgba(0,0,0,0.05) 1px, transparent 1px)`,
@@ -102,7 +109,7 @@ const GameboyFrame: React.FC<GameboyFrameProps> = ({
                         <h1 className="text-sm font-bold text-cyan-400/80 drop-shadow-[0_1px_1px_rgba(0,0,0,0.7)] tracking-tighter">Poho's Great Escape</h1>
                         <div className="flex items-center gap-1">
                              {inventory.map((p, i) => (
-                                <PowerUpIcon key={i} type={p} isSelected={i === selectedPowerUpIndex} />
+                                <PowerUpIcon key={i} type={p} isSelected={i === selectedPowerUpIndex} onClick={() => onSelectPowerUp(i)} />
                             ))}
                             {Array(3 - inventory.length).fill(0).map((_, i) => (
                                 <div key={i} className="w-8 h-8 rounded-full bg-slate-800/50 border-2 border-slate-700"></div>
@@ -120,18 +127,8 @@ const GameboyFrame: React.FC<GameboyFrameProps> = ({
 
             {/* Controls Area */}
             <div className="flex-grow flex flex-col justify-end pb-8">
-                <div className="flex justify-between items-center px-4">
-                    {/* D-PAD */}
-                    <div className="relative w-36 h-36">
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-[#2d323b]"></div>
-                        <DPadButton onPress={onDirectionPress} direction={Direction.Up} gridPlacement="absolute top-0 left-1/2 -translate-x-1/2 rounded-t-md">▲</DPadButton>
-                        <DPadButton onPress={onDirectionPress} direction={Direction.Left} gridPlacement="absolute left-0 top-1/2 -translate-y-1/2 rounded-l-md">◀</DPadButton>
-                        <DPadButton onPress={onDirectionPress} direction={Direction.Right} gridPlacement="absolute right-0 top-1/2 -translate-y-1/2 rounded-r-md">▶</DPadButton>
-                        <DPadButton onPress={onDirectionPress} direction={Direction.Down} gridPlacement="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-b-md">▼</DPadButton>
-                    </div>
-
-                    {/* A Button */}
-                     <div className="relative w-24 h-24 flex items-center justify-center">
+                <div className="w-full flex justify-end px-8 mb-[-2.5rem] z-10">
+                    <div className="relative w-24 h-24 flex items-center justify-center">
                         <GameboyButton 
                             onClick={onActionPress} 
                             className="w-20 h-20 bg-[#c0392b] active:bg-[#e74c3c] rounded-full text-white text-3xl font-bold transition-colors shadow-[2px_2px_5px_rgba(0,0,0,0.5),_inset_2px_2px_5px_rgba(255,255,255,0.3),_inset_-2px_-2px_5px_rgba(0,0,0,0.3)] flex items-center justify-center"
@@ -145,10 +142,16 @@ const GameboyFrame: React.FC<GameboyFrameProps> = ({
                         )}
                     </div>
                 </div>
-
-                {/* SELECT/START Buttons */}
-                 <div className="flex justify-center items-center gap-4 mt-4">
-                    <GameboyButton onClick={onSelectPress} className="w-16 h-8 bg-[#2d323b] active:bg-[#4a505a] rounded-full text-slate-400 text-xs font-bold tracking-widest shadow-inner">SELECT</GameboyButton>
+                <div className="flex justify-center items-center px-4">
+                    <div className="relative w-40 h-40">
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 bg-[#2d323b]"></div>
+                        <DPadButton onPress={onDirectionPress} direction={Direction.Up} gridPlacement="absolute top-0 left-1/2 -translate-x-1/2 rounded-t-md">▲</DPadButton>
+                        <DPadButton onPress={onDirectionPress} direction={Direction.Left} gridPlacement="absolute left-0 top-1/2 -translate-y-1/2 rounded-l-md">◀</DPadButton>
+                        <DPadButton onPress={onDirectionPress} direction={Direction.Right} gridPlacement="absolute right-0 top-1/2 -translate-y-1/2 rounded-r-md">▶</DPadButton>
+                        <DPadButton onPress={onDirectionPress} direction={Direction.Down} gridPlacement="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-b-md">▼</DPadButton>
+                    </div>
+                </div>
+                <div className="flex justify-center items-center gap-4 mt-4">
                     <GameboyButton onClick={onStartPress} className="w-16 h-8 bg-[#2d323b] active:bg-[#4a505a] rounded-full text-slate-400 text-xs font-bold tracking-widest shadow-inner">START</GameboyButton>
                 </div>
 

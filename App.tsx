@@ -120,9 +120,9 @@ export const App: React.FC = () => {
     }
   };
   
-  const handleSelectNextPowerUp = () => {
-    if (inventory.length > 0) {
-        setSelectedPowerUpIndex(prev => (prev + 1) % inventory.length);
+  const handleSelectPowerUp = (index: number) => {
+    if (inventory[index] !== undefined) {
+      setSelectedPowerUpIndex(index);
     }
   };
 
@@ -149,7 +149,7 @@ export const App: React.FC = () => {
                 selectedPowerUpIndex={selectedPowerUpIndex}
                 onDirectionPress={movePlayer}
                 onActionPress={handleUseSelectedPowerUp}
-                onSelectPress={handleSelectNextPowerUp}
+                onSelectPowerUp={handleSelectPowerUp}
                 onStartPress={handleTogglePause}
             >
               <div ref={gameAreaRef} className="w-full h-full flex justify-center items-center">
