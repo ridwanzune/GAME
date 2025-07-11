@@ -8,7 +8,7 @@ export const PLAYER_INITIAL_SPEED = 1; // tiles per tick
 export const SPEED_BOOST_DURATION = 25; // was 50 ticks
 export const SPEED_BOOST_MULTIPLIER = 2;
 
-export const BOT_INITIAL_SPEED = 0.5;
+export const BOT_INITIAL_SPEED = 0.3;
 export const BOT_STUN_DURATION = 15; // was 30 ticks
 export const BOT_PATH_RECALCULATION_CHANCE = 0.25; // Chance per tick for a bot to recalculate its path
 

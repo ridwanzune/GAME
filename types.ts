@@ -1,3 +1,4 @@
+
 export enum GameStatus {
   Menu,
   NameInput,
@@ -32,6 +33,7 @@ export interface BotState extends Position {
   path: Position[];
   stunned: number; // ticks remaining
   luredTo?: Position;
+  moveCounter: number;
 }
 
 export enum PowerUpType {

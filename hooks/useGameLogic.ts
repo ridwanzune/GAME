@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { GameStatus, Cell, PlayerState, BotState, PowerUp, PowerUpType, Trap, Position, Direction } from '../types';
 import { MAZE_WIDTH, MAZE_HEIGHT, BOT_INITIAL_SPEED, GAME_TICK_MS, POWERUP_COUNT, SPEED_BOOST_DURATION, SPEED_BOOST_MULTIPLIER, BOT_STUN_DURATION, TRAP_DURATION, DISTRACTION_DURATION, BOT_PATH_RECALCULATION_CHANCE } from '../constants';
@@ -117,10 +118,10 @@ export const useGameLogic = () => {
         const botIndex = Math.floor(Math.random() * emptyCells.length);
         const pos = emptyCells.splice(botIndex, 1)[0];
         if (pos && (pos.x > MAZE_WIDTH/2 || pos.y > MAZE_HEIGHT/2)) { // spawn away from player
-            newBots.push({ id: i, ...pos, path: [], stunned: 0 });
+            newBots.push({ id: i, ...pos, path: [], stunned: 0, moveCounter: 0 });
         } else if(emptyCells.length > 0) { // retry if too close
             const secondTryPos = emptyCells.splice(Math.floor(Math.random() * emptyCells.length), 1)[0];
-            if(secondTryPos) newBots.push({ id: i, ...secondTryPos, path: [], stunned: 0 });
+            if(secondTryPos) newBots.push({ id: i, ...secondTryPos, path: [], stunned: 0, moveCounter: 0 });
         }
     }
     setBots(newBots);
@@ -288,6 +289,11 @@ export const useGameLogic = () => {
           return { ...bot, stunned: bot.stunned - 1 };
         }
 
+        const moveCounter = bot.moveCounter + BOT_INITIAL_SPEED;
+        if (moveCounter < 1) {
+            return { ...bot, moveCounter };
+        }
+
         const target = distraction ?? player;
         let newPath = [...bot.path]; // Create a copy to avoid state mutation
         let newLuredTo = bot.luredTo;
@@ -307,10 +313,10 @@ export const useGameLogic = () => {
         const nextPos = newPath.shift();
         
         if (nextPos) {
-          return { ...bot, x: nextPos.x, y: nextPos.y, path: newPath, luredTo: newLuredTo };
+          return { ...bot, x: nextPos.x, y: nextPos.y, path: newPath, luredTo: newLuredTo, moveCounter: moveCounter - 1 };
         }
 
-        return { ...bot, path: newPath, luredTo: newLuredTo };
+        return { ...bot, path: newPath, luredTo: newLuredTo, moveCounter: moveCounter - 1 };
       }));
       
       // Update traps and distractions
